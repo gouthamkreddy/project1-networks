@@ -10,15 +10,59 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
+#define PORT    	3000					
+
+int parse(int size, char str[size]){
+	Request = Request-Line
+             *(( general-header
+              | request-header ) CRLF)
+             CRLF
+             [ message-body ]
+    Request-Line = Method SP Request-URI SP HTTP-Version CRLF
+    Method = "GET"
+    HTTP-Version = "HTTP/1.1"
+    Request-URI = "*" | absoluteURI | abs_path | authority
+    // (Files are indicated by an absolute path (abs_path), 
+    // such as “/index.html” (a specific file relative to the
+    // server’s base directory) or such as “/images/" or “/” 
+    // (directories relative to the server's base directory).)
+    Connection = "Connection" ":" 1#(connection-token) connection-token = token
+    request-header = Accept                   
+                      | Accept-Charset           
+                      | Accept-Encoding          
+                      | Accept-Language          
+                      | Authorization            
+                      | Expect               
+                      | From                 
+                      | Host                 
+                      | If-Match             
+                      | If-Modified-Since    
+                      | If-None-Match        
+                      | If-Range             
+                      | If-Unmodified-Since  
+                      | Max-Forwards         
+                      | Proxy-Authorization  
+                      | Range                
+                      | Referer              
+                      | TE                   
+                      | User-Agent           
+    CR             = <US-ASCII CR, carriage return (13)>
+    LF             = <US-ASCII LF, linefeed (10)>
+    SP             = <US-ASCII SP, space (32)>
+    CRLF		   = CR LF
+
+}
 
 int main(int argc, char * argv[]) {
 	int sockid, new_sockid;   					//sockets
 	struct sockaddr_in sin;						//sockaddr
 	int status;
-	char send_buf[MAX_LINE], recv_buf[MAX_LINE];						
+	pid_t  pid;
+	char send_buf[MAX_SIZE], recv_buf[MAX_SIZE];						
 	socklen_t len;
+	
 	/*	Checking number of arguments  */
-  	if(argc!=2){
+  	if(argc!=1){
 		fprintf(stderr, "argc\n");
 		return 1;
 	}
@@ -28,7 +72,7 @@ int main(int argc, char * argv[]) {
   	bzero((char *)send_buf, MAX_SIZE);			
   	bzero((char *)recv_buf, MAX_SIZE);			
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(atoi(argv[1]));
+	sin.sin_port = htons(PORT);
 	sin.sin_addr.s_addr = htons(INADDR_ANY);
 
 	/*	Creating a socket	*/
@@ -49,24 +93,38 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	printf("HTTP Server listening on Port %d\n", PORT);
+
 	while(1){
 		/*	Waiting to accept connection from a client  */
 		if((new_sockid = accept(sockid, (struct sockaddr *)&sin, &len)) < 0) {
 			perror("Error: accept");
 			break;
 		} 
-
-		printf("%s:%d connected\n", inet_ntoa(sin.sin_addr), ntohs(sin.sin_port));
 		
-		FILE *fsp = fdopen(new_sockid, "r+b");
+		bzero((char *)recv_buf, MAX_SIZE);
+		status = recv(new_sockid, recv_buf, MAX_SIZE, 0);
+		
+		if(status < 0){
+			printf("recv() error\n");
+		}else if(status == 0){
+			printf("Client Disconnected\n");
+		}else{
+			fputs(recv_buf, stdout);
+		}
+		
+		// parse(strlen(recv_buf), recv_buf);
+		// printf("size:%d\n", strlen(recv_buf));
 
-	
-		bzero((char *)buf, sizeof(buf));			//Filling buf with zero valued bytes
-			
-		fread(buf, 1, sizeof(buf), fsp);
-			
+		strcpy(send_buf,"HTTP/1.1 200 OK\nContent-length: 47\nContent-Type: text/html\n\n<html><body><H1>Hello buddy</H1></body></html>");    
+		status = send(new_sockid,&send_buf,sizeof(send_buf),0);
+		// status = write(new_sockid,&send_buf,sizeof(send_buf));
 
-		fclose(fsp);
+		printf("\nSTATUS:%d\n",status);
+		      
+		   // printf("\nSent : %s\n",xx);
+		
+		
     	close(new_sockid);	
 	}
 }
