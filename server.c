@@ -10,7 +10,8 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-#define PORT    	3000					
+#define PORT    	3000
+
 
 // int parse(int size, char str[size]){
 // 	Request = Request-Line
@@ -63,13 +64,53 @@
 // 	501 Not Implemented
 // }
 
-char* filename(int size, char str[size]){
-	char *firstline;
-   	firstline = strchr(str, '\n');
-   	int len = firstline - str + 1;
-   	printf("\n\n%.*s\n\n", len, str);
-   	printf("%d\n", len);
-   	return str;
+char* parse_req(int sockid, int size, char str[size]){
+   	
+   	/*--- Method Check ---*/
+	if(strncmp(str, "GET ", 4)){
+		write_response(sockid, 0);
+	}
+	
+	/*--- Protocol/Version Check ---*/
+   	char* version = malloc(11);
+   	version[11] = '\0';
+   	char* str_temp = strchr(str+4, ' ');
+   	strncpy(version, str_temp+1, 10);
+   	if(strcmp(version, "HTTP/1.1\r\n")){
+   		write_response(sockid, 1);
+   	}
+   	
+   	/*--- URI Path ---*/
+   	int len = strchr(str+4, ' ') - str - 4;
+   	char* path = malloc(len+1);
+   	strncpy(path, str+4, len);
+   	path[len] = '\0';
+
+   	return path;
+}
+
+int write_response(int sockid, int i){
+	char buffer[4096];
+	if(i == 0){
+		// strcpy(send_buf,"HTTP/1.1 400 OK\nContent-length: 47\nContent-Type: text/html\n\n<html><body><H1>Hello buddy</H1></body></html>");    
+		// status = send(new_sockid,&send_buf, sizeof(send_buf),0);
+	}else if(i == 1){
+		strcpy(buffer, "HTTP/1.1 400 Bad Request\r\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "Server: Dynamic Thread\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "Content-length: 147\r\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "Content-Type: text/html\r\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "\r\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "<html>\n<head>\n<title>Bad Request</title>\n</head>\r\n");
+  		write(sockid, buffer, strlen(buffer));
+  		strcpy(buffer, "<body>\n<p>400 Bad Request.</p>\n</body>\n</html>\r\n");
+  		write(sockid, buffer, strlen(buffer));
+	}
+	return 0;
 }
 
 int main(int argc, char * argv[]) {
@@ -80,13 +121,13 @@ int main(int argc, char * argv[]) {
 	char send_buf[MAX_SIZE], recv_buf[MAX_SIZE];						
 	socklen_t len;
 	
-	/*	Checking number of arguments  */
+	/*--- Checking number of arguments ---*/
   	if(argc!=1){
 		fprintf(stderr, "argc\n");
 		return 1;
 	}
 
-	/*	Setting values of sockaddr_in  */
+	/*--- Setting values of sockaddr_in ---*/
   	bzero((char *)&sin, sizeof(sin));
   	bzero((char *)send_buf, MAX_SIZE);			
   	bzero((char *)recv_buf, MAX_SIZE);			
@@ -94,19 +135,19 @@ int main(int argc, char * argv[]) {
 	sin.sin_port = htons(PORT);
 	sin.sin_addr.s_addr = htons(INADDR_ANY);
 
-	/*	Creating a socket	*/
+	/*--- Creating a socket ---*/
 	if((sockid = socket(AF_INET, SOCK_STREAM, 0)) < 0){
 		perror("Error: socket");
 		return 1;
 	}
 	
-	/*	Binding socket with ip and port  */
+	/*--- Binding socket with ip and port ---*/
 	if(bind(sockid, (struct sockaddr *)&sin, sizeof(sin)) < 0){
 		perror("Error: bind");
 		return 1;
 	}
 
-	/*	Socket listening for a connection  */
+	/*--- Socket listening for a connection ---*/
 	if((status = listen(sockid, MAX_PENDING)) != 0){
 		perror("Error: listen");
 		return 1;
@@ -131,21 +172,28 @@ int main(int argc, char * argv[]) {
 		}else{
 			fputs(recv_buf, stdout);
 		}
-		
-		// parse(strlen(recv_buf), recv_buf);
-		// printf("size:%d\n", strlen(recv_buf));
-		//Check if string is valid or not
 
-		filename(strlen(recv_buf), recv_buf);
+		char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
+		// printf("%s\n", file_path);
 
-		strcpy(send_buf,"HTTP/1.1 200 OK\nContent-length: 47\nContent-Type: text/html\n\n<html><body><H1>Hello buddy</H1></body></html>");    
-		status = send(new_sockid,&send_buf,sizeof(send_buf),0);
+		strcpy(send_buf, "HTTP/1.1 400 Bad Request\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "Server: Dynamic Thread\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "Content-length: 47\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "Content-Type: text/html\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "<html>\n<head>\n<title>Bad Request</title>\n</head>\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+  		strcpy(send_buf, "<body>\n<p>400 Bad Request.</p>\n</body>\n</html>\r\n");
+  		write(new_sockid, send_buf, strlen(send_buf));
+
+		// strcpy(send_buf,"HTTP/1.1 200 OK\nContent-length: 47\nContent-Type: text/html\n\n<html><body><H1>Hello buddy</H1></body></html>");    
+		// status = send(new_sockid,&send_buf, sizeof(send_buf),0);
 		// status = write(new_sockid,&send_buf,sizeof(send_buf));
-
-		printf("\nSTATUS:%d\n",status);
-		      
-		   // printf("\nSent : %s\n",xx);
-		
 		
     	close(new_sockid);	
 	}
