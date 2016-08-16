@@ -203,6 +203,14 @@ int main(int argc, char * argv[]) {
 			{
 				strcpy(send_buf, "Content-Type: image/gif\r\n\r\n");
 			}
+			else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
+	  		{
+	  			strcpy(send_buf, "Content-Type: image/jpeg\r\n\r\n");
+			}
+			else if (!strcmp(".pdf", extension))
+			{
+				strcpy(send_buf, "Content-Type: Application/pdf\r\n\r\n");
+			}
 			printf("%s\n", send_buf);
 	  		write(new_sockid, send_buf, strlen(send_buf));
 	  		
