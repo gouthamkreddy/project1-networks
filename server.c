@@ -14,7 +14,7 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-#define PORT    	3001
+#define PORT    	3000
 
 int write_response(int sockid, int i);
 
@@ -180,11 +180,7 @@ int main(int argc, char * argv[]) {
 		    int count = ftell(file);
 		    fseek(file, 0L, SEEK_SET);
 
-		    printf("%d\n", count);
-
 		    char *extension = strrchr(file_path, '.');
-
-		    printf("%s\n", extension);
 
 		    char buf_size[20];
 		    sprintf(buf_size, "%d", count);
@@ -192,14 +188,24 @@ int main(int argc, char * argv[]) {
 		    strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
 	  		write(new_sockid, send_buf, strlen(send_buf));
 	  		strcpy(send_buf, "Content-length: ");
-	  		// strcat(send_buf, itoa());
 	  		strcat(strcat(send_buf, buf_size), "\r\n");
 	  		printf("%s\n", send_buf);
 	  		write(new_sockid, send_buf, strlen(send_buf));
-	  		strcpy(send_buf, "Content-Type: text/plain\r\n\r\n");
+	  		if(!strcmp(".txt", extension)) 
+	  		{
+	  			strcpy(send_buf, "Content-Type: text/plain\r\n\r\n");
+	  		}
+	  		else if (!strcmp(".html", extension) || !strcmp(".htm", extension))
+	  		{
+	  			strcpy(send_buf, "Content-Type: text/html\r\n\r\n");
+			}
+			else if (!strcmp(".gif", extension))
+			{
+				strcpy(send_buf, "Content-Type: image/gif\r\n\r\n");
+			}
+			printf("%s\n", send_buf);
 	  		write(new_sockid, send_buf, strlen(send_buf));
 	  		
-	  		// sendfile(new_sockid, fd, NULL, count, NULL, 0);
 	  		bzero((char *)send_buf, MAX_SIZE);
 			
 			/*	Sending file content  */
