@@ -23,6 +23,7 @@ char* parse_req(int sockid, int size, char str[size]){
    	/*--- Method Check ---*/
 	if(strncmp(str, "GET ", 4)){
 		write_response(sockid, 501);
+		return NULL;
 	}
 	
 	/*--- Protocol/Version Check ---*/
@@ -32,6 +33,7 @@ char* parse_req(int sockid, int size, char str[size]){
    	strncpy(version, str_temp+1, 10);
    	if(strcmp(version, "HTTP/1.1\r\n")){
    		write_response(sockid, 400);
+   		return NULL;
    	}
    	
    	/*--- URI Path ---*/
@@ -154,20 +156,18 @@ int main(int argc, char * argv[]) {
 			bzero((char *)recv_buf, MAX_SIZE);
 			status = recv(new_sockid, recv_buf, MAX_SIZE, 0);
 			
-			if(status < 0){
-				printf("recv() error\n");
-			}else if(status == 0){
-				printf("Client Disconnected\n");
-			}else{
-				fputs(recv_buf, stdout);
-			}
+			if(status < 0) printf("recv() error\n");
+			else if(status == 0) printf("Client Disconnected\n");
+			
+			// fputs(recv_buf, stdout);	
 
 			printf("received request:\n %s\n", recv_buf);
 
 			char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
 
+			if(file_path == NULL) continue;
+
 			FILE *file = fopen(file_path+1,"rb");
-			int count;
 			if (!file){
 		    	printf("no such file exists\n");
 		    	write_response(new_sockid, 404);
@@ -176,20 +176,37 @@ int main(int argc, char * argv[]) {
 		    
 		    printf("File exists\n");
 
+		    fseek(file, 0L, SEEK_END);
+		    int count = ftell(file);
+		    fseek(file, 0L, SEEK_SET);
+
+		    printf("%d\n", count);
+
+		    char *extension = strrchr(file_path, '.');
+
+		    printf("%s\n", extension);
+
+		    char buf_size[20];
+		    sprintf(buf_size, "%d", count);
+
 		    strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
 	  		write(new_sockid, send_buf, strlen(send_buf));
-	  		strcpy(send_buf, "Content-length: count\r\n");
+	  		strcpy(send_buf, "Content-length: ");
+	  		// strcat(send_buf, itoa());
+	  		strcat(strcat(send_buf, buf_size), "\r\n");
+	  		printf("%s\n", send_buf);
 	  		write(new_sockid, send_buf, strlen(send_buf));
 	  		strcpy(send_buf, "Content-Type: text/plain\r\n\r\n");
 	  		write(new_sockid, send_buf, strlen(send_buf));
 	  		
 	  		// sendfile(new_sockid, fd, NULL, count, NULL, 0);
 	  		bzero((char *)send_buf, MAX_SIZE);
+			
 			/*	Sending file content  */
 			int r_ret;
 			while((r_ret = fread(send_buf, 1, MAX_SIZE, file)) > 0) {
 			    status = fwrite(send_buf, 1, r_ret, fsp);
-			    printf("status:%d\n", status);
+			    printf("characters sent:%d\n", status);
 			   	if(status == 0)	{
 					perror("Error: send file content");
 					return 1;
@@ -199,14 +216,6 @@ int main(int argc, char * argv[]) {
 			}
 			fclose(file);
 		}
-
-		
-
-  		// strcpy(send_buf, "<html>\n<head>\n<title>OK</title>\n</head>\r\n");
-  		// write(new_sockid, send_buf, strlen(send_buf));
-  		// strcpy(send_buf, "<body>\n<p>400 Bad Request</p>\n</body>\n</html>\r\n");
-  		// write(new_sockid, send_buf, strlen(send_buf));
-
 
 		fclose(fsp);
     	close(new_sockid);	
