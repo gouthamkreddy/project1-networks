@@ -12,7 +12,7 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-#define PORT    	3000
+#define PORT    	3002
 
 int write_response(int sockid, int i);
 
@@ -129,7 +129,7 @@ int main(int argc, char * argv[]) {
 		perror("Error: socket");
 		return 1;
 	}
-	
+
 	/*--- Binding socket with ip and port ---*/
 	if(bind(sockid, (struct sockaddr *)&sin, sizeof(sin)) < 0){
 		perror("Error: bind");
@@ -143,8 +143,10 @@ int main(int argc, char * argv[]) {
 	}
 
 	printf("HTTP Server listening on Port %d\n", PORT);
+	int i=0;
 
 	while(1){
+		i++;
 		/*	Waiting to accept connection from a client  */
 		if((new_sockid = accept(sockid, (struct sockaddr *)&sin, &len)) < 0) {
 			perror("Error: accept");
@@ -178,7 +180,9 @@ int main(int argc, char * argv[]) {
 
 				char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
 				if(file_path == NULL) continue;
-				printf("request: %s\t", file_path);
+				printf("i=%d  request: %s\t", i,file_path);
+
+
 
 				/*--- Handling '/' case in URI ---*/
 				if (file_path[strlen(file_path)-1] == '/')
@@ -216,12 +220,12 @@ int main(int argc, char * argv[]) {
 				else if (!strcmp(".gif", extension))
 					strcpy(send_buf, "Content-Type: image/gif\r\n");
 				else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
-		  			strcpy(send_buf, "Content-Type: image/jpeg\r\n\r\n");
+		  			strcpy(send_buf, "Content-Type: image/jpeg\r\n");
 				else if (!strcmp(".pdf", extension))
 					strcpy(send_buf, "Content-Type: Application/pdf\r\n");
 		  		write(new_sockid, send_buf, strlen(send_buf));
 		  		/*--- Connection ---*/
-		  		strcpy(send_buf, "Connection: Keep-Alive\r\n\r\n");
+		  		strcpy(send_buf, "Connection: keep-alive\r\n\r\n");
 	  			write(new_sockid, send_buf, strlen(send_buf));
 			
 				/*	Sending file content  */
@@ -229,6 +233,7 @@ int main(int argc, char * argv[]) {
 				int r_ret;
 				while((r_ret = fread(send_buf, 1, MAX_SIZE, file)) > 0) {
 				    status = fwrite(send_buf, 1, r_ret, fsp);
+				    // printf("%d\n", status);
 				   	if(status == 0)	{
 						perror("Error: send file content");
 						return 1;
