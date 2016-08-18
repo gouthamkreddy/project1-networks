@@ -62,6 +62,10 @@ int write_response(int sockid, int i){
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-length: 105\r\n");
   		write(sockid, buffer, strlen(buffer));
+  		time_t t = time(NULL);
+	    struct tm *tm = localtime(&t);
+	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Not Implemented</title>\n</head>\r\n");
@@ -75,6 +79,10 @@ int write_response(int sockid, int i){
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-length: 97\r\n");
   		write(sockid, buffer, strlen(buffer));
+  		time_t t = time(NULL);
+	    struct tm *tm = localtime(&t);
+	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Bad Request</title>\n</head>\r\n");
@@ -88,6 +96,10 @@ int write_response(int sockid, int i){
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-length: 93\r\n");
   		write(sockid, buffer, strlen(buffer));
+  		time_t t = time(NULL);
+	    struct tm *tm = localtime(&t);
+	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Not Found</title>\n</head>\r\n");
@@ -101,6 +113,10 @@ int write_response(int sockid, int i){
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-length: 117\r\n");
   		write(sockid, buffer, strlen(buffer));
+  		time_t t = time(NULL);
+	    struct tm *tm = localtime(&t);
+	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Internal Server Error</title>\n</head>\r\n");
@@ -144,6 +160,10 @@ int write_response_ok(int sockid, char* send_buf, FILE *file, char* extension, i
 	time_t t = time(NULL);
     struct tm *tm = localtime(&t);
     sprintf(send_buf, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+	write(sockid, send_buf, strlen(send_buf));
+
+	/*--- Server ---*/
+	strcpy(send_buf, "server: MyCServer\r\n");
 	write(sockid, send_buf, strlen(send_buf));
 
 	/*--- Connection ---*/
@@ -228,8 +248,11 @@ int main(int argc, char * argv[]) {
 	}
 
 	printf("HTTP Server listening on Port %d\n", port);
+	signal(SIGCHLD, SIG_IGN);
+    signal(SIGPIPE, SIG_IGN);
 
 	int i = 0;
+	
 	while(1){
 		/*--- Waiting to accept connection from a client ---*/
 		if((new_sockid = accept(sockid, (struct sockaddr *)&sin, &len)) < 0) {
@@ -258,7 +281,18 @@ int main(int argc, char * argv[]) {
 					printf("Client Disconnected\n");
 					break;
 				} 
-				
+
+				char log_buf[1000];
+				time_t t = time(NULL);
+    			struct tm *tm = localtime(&t);
+    			sprintf(log_buf, "Date: %s, %d %s %d %d:%d:%d IST\tIP:%d.%d.%d.%d\t", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec, (int)(sin.sin_addr.s_addr&0xFF), (int)((sin.sin_addr.s_addr&0xFF00)>>8), (int)((sin.sin_addr.s_addr&0xFF0000)>>16), (int)((sin.sin_addr.s_addr&0xFF000000)>>24));
+    			int temp_len = strstr(recv_buf, "\r\n") - recv_buf;
+    			strcat(strncat(log_buf, recv_buf, temp_len),"\n");
+
+    			FILE *logp = fopen("log.txt", "ab");
+				fwrite(log_buf, 1, strlen(log_buf), logp);
+				fclose(logp);
+
 				char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
 				if(file_path == NULL) continue;
 				printf("%d--request: %s---", i, file_path);
@@ -297,7 +331,7 @@ int main(int argc, char * argv[]) {
 			}
 
 			fclose(fsp);
-			//kill process
+			exit(0);
 		}
 		
     	close(new_sockid);	
@@ -310,12 +344,10 @@ int main(int argc, char * argv[]) {
 
 // no extension thing 
 //400 request
-//client disconnected
-//date everywhere
-//server everywhere
-//initialization file
+//date and server everywhere
 //setresuid
-//http1.1
+//req length
+//zoobar check conditions
 
 
 
