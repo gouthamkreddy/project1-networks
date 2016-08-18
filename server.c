@@ -13,7 +13,6 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-// #define PORT    	3000
 
 char* allMonths[]= {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 char* allWeeks[]= {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
@@ -165,6 +164,8 @@ int main(int argc, char * argv[]) {
 	pid_t  pid;
 	char send_buf[MAX_SIZE], recv_buf[MAX_SIZE];						
 	socklen_t len;
+	char line[80], *dir;
+	int port;
 	
 	/*--- Checking number of arguments ---*/
   	if(argc!=2){
@@ -172,12 +173,31 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
+	/*--- Read Config File and set PORT and DIR ---*/
+	FILE *fp = fopen ("server.conf", "rb");
+	while(fgets(line, 80, fp) != NULL)
+   	{
+		if(!strncmp(line, "port", 4))
+		{
+			if(line[strlen(line)-1] == '\n') line[strlen(line)-1] = '\0';
+			else line[strlen(line)] = '\0';
+			port = atoi(line+7);
+		}
+		else if (!strncmp(line, "dir", 3))
+		{
+			if(line[strlen(line)-1] == '\n') line[strlen(line)-2] = '\0';
+			else line[strlen(line)-1] = '\0';
+			dir = line + 7;
+		}
+	}
+    fclose(fp);  
+
 	/*--- Setting values of sockaddr_in ---*/
   	bzero((char *)&sin, sizeof(sin));
   	bzero((char *)send_buf, MAX_SIZE);			
   	bzero((char *)recv_buf, MAX_SIZE);			
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(atoi(argv[1]));
+	sin.sin_port = htons(port);
 	sin.sin_addr.s_addr = htons(INADDR_ANY);
 
 	/*--- Creating a socket ---*/
@@ -198,7 +218,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	printf("HTTP Server listening on Port %d\n", atoi(argv[1]));
+	printf("HTTP Server listening on Port %d\n", port);
 
 	int i = 0;
 	while(1){
