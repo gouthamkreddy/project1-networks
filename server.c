@@ -12,9 +12,17 @@
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-#define PORT    	3002
+#define PORT    	3000
 
 int write_response(int sockid, int i);
+
+int check_connection(int size, char str[size]){
+	char* temp;
+	temp = strstr(str, "connection:");
+	if (!strncmp(str+12, "keep-alive", 10)) return 1;
+	if (!strncmp(str+12, "close", 5)) return 2;
+	return 0;
+}
 
 char* parse_req(int sockid, int size, char str[size]){
    	
@@ -102,6 +110,46 @@ int write_response(int sockid, int i){
 	return 0;
 }
 
+int write_response_ok(int sockid, char* send_buf, FILE *file, char* extension, int conn){
+	
+	/*--- Sending 200 OK Response ---*/
+	strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
+	write(sockid, send_buf, strlen(send_buf));
+	
+	/*--- Content-length ---*/
+	fseek(file, 0L, SEEK_END);
+	int count = ftell(file);
+	fseek(file, 0L, SEEK_SET);
+	char buf_size[20];
+	sprintf(buf_size, "%d", count);
+	strcpy(send_buf, "Content-Length: ");
+	strcat(strcat(send_buf, buf_size), "\r\n");
+	write(sockid, send_buf, strlen(send_buf));
+
+	/*--- Content-Type ---*/
+	if(!strcmp(".txt", extension)) 
+		strcpy(send_buf, "Content-Type: text/plain\r\n");
+	else if (!strcmp(".html", extension) || !strcmp(".htm", extension))
+		strcpy(send_buf, "Content-Type: text/html\r\n");
+	else if (!strcmp(".gif", extension))
+		strcpy(send_buf, "Content-Type: image/gif\r\n");
+	else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
+		strcpy(send_buf, "Content-Type: image/jpeg\r\n");
+	else if (!strcmp(".pdf", extension))
+		strcpy(send_buf, "Content-Type: Application/pdf\r\n");
+	write(sockid, send_buf, strlen(send_buf));
+	
+	/*--- Connection ---*/
+	if (conn == 2)
+		strcpy(send_buf, "Connection: close\r\n\r\n");
+	else if(conn == 1 || conn == 0)
+		strcpy(send_buf, "Connection: keep-alive\r\n\r\n");		  		
+	write(sockid, send_buf, strlen(send_buf));
+
+	return 1;
+
+}
+
 int main(int argc, char * argv[]) {
 	int sockid, new_sockid;   					
 	struct sockaddr_in sin;						
@@ -142,28 +190,26 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	printf("HTTP Server listening on Port %d\n", PORT);
-	int i=0;
+	printf("HTTP Server listening on Port %d\n\n", PORT);
 
+	int i = 0;
 	while(1){
-		i++;
-		/*	Waiting to accept connection from a client  */
+		/*--- Waiting to accept connection from a client ---*/
 		if((new_sockid = accept(sockid, (struct sockaddr *)&sin, &len)) < 0) {
 			perror("Error: accept");
 			break;
 		} 
+		i++;
+		printf("\nAccept: accept\n");
 
-		printf("Accept: accept\n\n");
-		
 		pid = fork();
 		if(pid == 0)
 		{	
 			close(sockid);
 			FILE *fsp = fdopen(new_sockid, "r+b");
 			while(1){
-				printf("waiting to receive\n");
+				printf("waiting--");
 				bzero((char *)recv_buf, MAX_SIZE);
-				// sleep(2);
 				status = recv(new_sockid, recv_buf, MAX_SIZE, 0);
 				if(status < 0)
 				{
@@ -176,13 +222,9 @@ int main(int argc, char * argv[]) {
 					//should be handled
 				} 
 				
-				// printf("received request:\n%s\n", recv_buf);
-
 				char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
 				if(file_path == NULL) continue;
-				printf("i=%d  request: %s\t", i,file_path);
-
-
+				printf("%d--request: %s---", i, file_path);
 
 				/*--- Handling '/' case in URI ---*/
 				if (file_path[strlen(file_path)-1] == '/')
@@ -193,47 +235,53 @@ int main(int argc, char * argv[]) {
 				/*--- Checking File ---*/
 				FILE *file = fopen(file_path+1, "rb");
 				if (!file){
-			    	printf("no such file exists\n");
+			    	printf("!file\n");
 			    	write_response(new_sockid, 404);
 			    	continue;
 			    } 
-			    printf("File exists\n");
-
-			    /*--- Sending 200 OK Response ---*/
-			    strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
-		  		/*--- Content-length ---*/
-		  		write(new_sockid, send_buf, strlen(send_buf));
-		  		fseek(file, 0L, SEEK_END);
-			    int count = ftell(file);
-			    fseek(file, 0L, SEEK_SET);
-		  		char buf_size[20];
-			    sprintf(buf_size, "%d", count);
-		  		strcpy(send_buf, "Content-Length: ");
-		  		strcat(strcat(send_buf, buf_size), "\r\n");
-		  		write(new_sockid, send_buf, strlen(send_buf));
-		  		/*--- Content-Type ---*/
-		  		char *extension = strrchr(file_path, '.');
-		  		if(!strcmp(".txt", extension)) 
-		  			strcpy(send_buf, "Content-Type: text/plain\r\n");
-		  		else if (!strcmp(".html", extension) || !strcmp(".htm", extension))
-		  			strcpy(send_buf, "Content-Type: text/html\r\n");
-				else if (!strcmp(".gif", extension))
-					strcpy(send_buf, "Content-Type: image/gif\r\n");
-				else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
-		  			strcpy(send_buf, "Content-Type: image/jpeg\r\n");
-				else if (!strcmp(".pdf", extension))
-					strcpy(send_buf, "Content-Type: Application/pdf\r\n");
-		  		write(new_sockid, send_buf, strlen(send_buf));
-		  		/*--- Connection ---*/
-		  		strcpy(send_buf, "Connection: keep-alive\r\n\r\n");
-	  			write(new_sockid, send_buf, strlen(send_buf));
+			    printf("file\n");
+			    char *extension = strrchr(file_path, '.');
+			    int conn = check_connection(strlen(recv_buf), recv_buf);
+			    int ret = write_response_ok(new_sockid, send_buf, file, extension, conn);
+			    printf("return= %d\n", ret);
+			 //    /*--- Sending 200 OK Response ---*/
+			 //    strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
+		  // 		write(new_sockid, send_buf, strlen(send_buf));
+		  // 		/*--- Content-length ---*/
+		  // 		fseek(file, 0L, SEEK_END);
+			 //    int count = ftell(file);
+			 //    fseek(file, 0L, SEEK_SET);
+		  // 		char buf_size[20];
+			 //    sprintf(buf_size, "%d", count);
+		  // 		strcpy(send_buf, "Content-Length: ");
+		  // 		strcat(strcat(send_buf, buf_size), "\r\n");
+		  // 		write(new_sockid, send_buf, strlen(send_buf));
+		  // 		/*--- Content-Type ---*/
+		  // 		char *extension = strrchr(file_path, '.');
+		  // 		if(!strcmp(".txt", extension)) 
+		  // 			strcpy(send_buf, "Content-Type: text/plain\r\n");
+		  // 		else if (!strcmp(".html", extension) || !strcmp(".htm", extension))
+		  // 			strcpy(send_buf, "Content-Type: text/html\r\n");
+				// else if (!strcmp(".gif", extension))
+				// 	strcpy(send_buf, "Content-Type: image/gif\r\n");
+				// else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
+		  // 			strcpy(send_buf, "Content-Type: image/jpeg\r\n");
+				// else if (!strcmp(".pdf", extension))
+				// 	strcpy(send_buf, "Content-Type: Application/pdf\r\n");
+		  // 		write(new_sockid, send_buf, strlen(send_buf));
+		  		// /*--- Connection ---*/
+		  		// int conn = check_connection(strlen(recv_buf), recv_buf);
+		  		// if (conn == 2)
+		  		// 	strcpy(send_buf, "Connection: close\r\n\r\n");
+		  		// else if(conn == 1 || conn == 0)
+		  		// 	strcpy(send_buf, "Connection: keep-alive\r\n\r\n");		  		
+	  			// write(new_sockid, send_buf, strlen(send_buf));
 			
-				/*	Sending file content  */
+				/*--- Sending file content ---*/
 		  		bzero((char *)send_buf, MAX_SIZE);
 				int r_ret;
 				while((r_ret = fread(send_buf, 1, MAX_SIZE, file)) > 0) {
 				    status = fwrite(send_buf, 1, r_ret, fsp);
-				    // printf("%d\n", status);
 				   	if(status == 0)	{
 						perror("Error: send file content");
 						return 1;
@@ -251,3 +299,14 @@ int main(int argc, char * argv[]) {
     	close(new_sockid);	
 	}
 }
+
+
+
+
+
+// no extension thing 
+//400 request
+
+
+
+
