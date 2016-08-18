@@ -9,10 +9,14 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <time.h>
 
 #define MAX_PENDING 10							//Number of clients single time
 #define MAX_SIZE    4096						//Buffer size
-#define PORT    	3000
+// #define PORT    	3000
+
+char* allMonths[]= {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+char* allWeeks[]= {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
 int write_response(int sockid, int i);
 
@@ -100,8 +104,6 @@ int write_response(int sockid, int i){
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
-
-  		
   		strcpy(buffer, "<html>\n<head>\n<title>Internal Server Error</title>\n</head>\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<body>\n<p>500 Internal Server Error</p>\n</body>\n</html>\r\n");
@@ -138,7 +140,13 @@ int write_response_ok(int sockid, char* send_buf, FILE *file, char* extension, i
 	else if (!strcmp(".pdf", extension))
 		strcpy(send_buf, "Content-Type: Application/pdf\r\n");
 	write(sockid, send_buf, strlen(send_buf));
-	
+
+	/*--- Date ---*/
+	time_t t = time(NULL);
+    struct tm *tm = localtime(&t);
+    sprintf(send_buf, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+	write(sockid, send_buf, strlen(send_buf));
+
 	/*--- Connection ---*/
 	if (conn == 2)
 		strcpy(send_buf, "Connection: close\r\n\r\n");
@@ -159,8 +167,8 @@ int main(int argc, char * argv[]) {
 	socklen_t len;
 	
 	/*--- Checking number of arguments ---*/
-  	if(argc!=1){
-		fprintf(stderr, "argc\n");
+  	if(argc!=2){
+		fprintf(stderr, "Run using ./server PORT\n");
 		return 1;
 	}
 
@@ -169,7 +177,7 @@ int main(int argc, char * argv[]) {
   	bzero((char *)send_buf, MAX_SIZE);			
   	bzero((char *)recv_buf, MAX_SIZE);			
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(PORT);
+	sin.sin_port = htons(atoi(argv[1]));
 	sin.sin_addr.s_addr = htons(INADDR_ANY);
 
 	/*--- Creating a socket ---*/
@@ -190,7 +198,7 @@ int main(int argc, char * argv[]) {
 		return 1;
 	}
 
-	printf("HTTP Server listening on Port %d\n\n", PORT);
+	printf("HTTP Server listening on Port %d\n", atoi(argv[1]));
 
 	int i = 0;
 	while(1){
@@ -219,7 +227,7 @@ int main(int argc, char * argv[]) {
 				else if(status == 0)
 				{
 					printf("Client Disconnected\n");
-					//should be handled
+					break;
 				} 
 				
 				char* file_path = parse_req(new_sockid, strlen(recv_buf), recv_buf);
@@ -243,39 +251,6 @@ int main(int argc, char * argv[]) {
 			    char *extension = strrchr(file_path, '.');
 			    int conn = check_connection(strlen(recv_buf), recv_buf);
 			    int ret = write_response_ok(new_sockid, send_buf, file, extension, conn);
-			    printf("return= %d\n", ret);
-			 //    /*--- Sending 200 OK Response ---*/
-			 //    strcpy(send_buf, "HTTP/1.1 200 OK\r\n");
-		  // 		write(new_sockid, send_buf, strlen(send_buf));
-		  // 		/*--- Content-length ---*/
-		  // 		fseek(file, 0L, SEEK_END);
-			 //    int count = ftell(file);
-			 //    fseek(file, 0L, SEEK_SET);
-		  // 		char buf_size[20];
-			 //    sprintf(buf_size, "%d", count);
-		  // 		strcpy(send_buf, "Content-Length: ");
-		  // 		strcat(strcat(send_buf, buf_size), "\r\n");
-		  // 		write(new_sockid, send_buf, strlen(send_buf));
-		  // 		/*--- Content-Type ---*/
-		  // 		char *extension = strrchr(file_path, '.');
-		  // 		if(!strcmp(".txt", extension)) 
-		  // 			strcpy(send_buf, "Content-Type: text/plain\r\n");
-		  // 		else if (!strcmp(".html", extension) || !strcmp(".htm", extension))
-		  // 			strcpy(send_buf, "Content-Type: text/html\r\n");
-				// else if (!strcmp(".gif", extension))
-				// 	strcpy(send_buf, "Content-Type: image/gif\r\n");
-				// else if (!strcmp(".jpeg", extension) || !strcmp(".jpg", extension))
-		  // 			strcpy(send_buf, "Content-Type: image/jpeg\r\n");
-				// else if (!strcmp(".pdf", extension))
-				// 	strcpy(send_buf, "Content-Type: Application/pdf\r\n");
-		  // 		write(new_sockid, send_buf, strlen(send_buf));
-		  		// /*--- Connection ---*/
-		  		// int conn = check_connection(strlen(recv_buf), recv_buf);
-		  		// if (conn == 2)
-		  		// 	strcpy(send_buf, "Connection: close\r\n\r\n");
-		  		// else if(conn == 1 || conn == 0)
-		  		// 	strcpy(send_buf, "Connection: keep-alive\r\n\r\n");		  		
-	  			// write(new_sockid, send_buf, strlen(send_buf));
 			
 				/*--- Sending file content ---*/
 		  		bzero((char *)send_buf, MAX_SIZE);
@@ -293,6 +268,7 @@ int main(int argc, char * argv[]) {
 			}
 
 			fclose(fsp);
+			//kill process
 		}
 
 		
@@ -306,7 +282,10 @@ int main(int argc, char * argv[]) {
 
 // no extension thing 
 //400 request
-
+//client disconnected
+//date everywhere
+//server everywhere
+//initialization file
 
 
 
