@@ -36,11 +36,11 @@ char* parse_req(int sockid, int size, char str[size]){
 	}
 	
 	/*--- Protocol/Version Check ---*/
-   	char* version = malloc(11);
-   	version[11] = '\0';
+   	char* version = malloc(9);
+   	version[8] = '\0';
    	char* str_temp = strchr(str+4, ' ');
-   	strncpy(version, str_temp+1, 10);
-   	if(strcmp(version, "HTTP/1.1\r\n")){
+   	strncpy(version, str_temp+1, 8);
+   	if(strcmp(version, "HTTP/1.1")){
    		write_response(sockid, 400);
    		return NULL;
    	}
@@ -154,7 +154,6 @@ int write_response_ok(int sockid, char* send_buf, FILE *file, char* extension, i
 	write(sockid, send_buf, strlen(send_buf));
 
 	return 1;
-
 }
 
 int main(int argc, char * argv[]) {
@@ -164,18 +163,19 @@ int main(int argc, char * argv[]) {
 	pid_t  pid;
 	char send_buf[MAX_SIZE], recv_buf[MAX_SIZE];						
 	socklen_t len;
-	char line[80], *dir;
+	char line[1000], *dir;
 	int port;
+	uid_t uid = 1000;
 	
 	/*--- Checking number of arguments ---*/
-  	if(argc!=2){
-		fprintf(stderr, "Run using ./server PORT\n");
+  	if(argc!=1){
+		fprintf(stderr, "argc\n");
 		return 1;
 	}
 
 	/*--- Read Config File and set PORT and DIR ---*/
 	FILE *fp = fopen ("server.conf", "rb");
-	while(fgets(line, 80, fp) != NULL)
+	while(fgets(line, 1000, fp) != NULL)
    	{
 		if(!strncmp(line, "port", 4))
 		{
@@ -192,6 +192,11 @@ int main(int argc, char * argv[]) {
 	}
     fclose(fp);  
 
+    if (chdir(dir)) printf("error in chdir %d\n", errno);
+    if (chroot(dir)) printf("error in chroot %d\n", errno);
+    // if (setresuid(uid, uid, uid))
+    //     err(1, "setresuid");
+
 	/*--- Setting values of sockaddr_in ---*/
   	bzero((char *)&sin, sizeof(sin));
   	bzero((char *)send_buf, MAX_SIZE);			
@@ -205,6 +210,10 @@ int main(int argc, char * argv[]) {
 		perror("Error: socket");
 		return 1;
 	}
+
+	int enable = 1;
+    if (setsockopt(sockid, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0)
+    	perror("setsockopt(SO_REUSEADDR) failed");
 
 	/*--- Binding socket with ip and port ---*/
 	if(bind(sockid, (struct sockaddr *)&sin, sizeof(sin)) < 0){
@@ -290,7 +299,6 @@ int main(int argc, char * argv[]) {
 			fclose(fsp);
 			//kill process
 		}
-
 		
     	close(new_sockid);	
 	}
@@ -306,6 +314,8 @@ int main(int argc, char * argv[]) {
 //date everywhere
 //server everywhere
 //initialization file
+//setresuid
+//http1.1
 
 
 
