@@ -48,7 +48,16 @@ char* parse_req(int sockid, int size, char str[size]){
    	}
    	
    	/*--- URI Path ---*/
+   	if(strncmp(str+4, "/", 1)){
+		write_response(sockid, 400, conn);
+		return NULL;
+	}
    	int len = strchr(str+4, ' ') - str - 4;
+   	if(len > 1024)
+   	{
+   		write_response(sockid, 400, conn);
+   		return NULL;
+   	}
    	char* path = malloc(len+1);
    	strncpy(path, str+4, len);
    	path[len] = '\0';
@@ -220,7 +229,7 @@ int main(int argc, char * argv[]) {
 	
 	/*--- Checking number of arguments ---*/
   	if(argc!=1){
-		fprintf(stderr, "argc\n");
+		fprintf(stderr, "No arguments required\n");
 		return 1;
 	}
 
@@ -245,7 +254,7 @@ int main(int argc, char * argv[]) {
 
     if (chdir(dir)) printf("error in chdir %d\n", errno);
     if (chroot(dir)) printf("error in chroot %d\n", errno);
-    // if (setresuid(uid, uid, uid))
+    // if (setresuid(uid, uid, uid)) printf("error in setresuid %d\n", errno);
     //     err(1, "setresuid");
 
 	/*--- Setting values of sockaddr_in ---*/
@@ -279,8 +288,6 @@ int main(int argc, char * argv[]) {
 	}
 
 	printf("HTTP Server listening on Port %d\n", port);
-	signal(SIGCHLD, SIG_IGN);
-    signal(SIGPIPE, SIG_IGN);
 
 	int i = 0;
 	
@@ -305,7 +312,7 @@ int main(int argc, char * argv[]) {
 				if(status < 0)
 				{
 					perror("Error: recv\n");	
-					// write_response(new_sockid, 501);
+					write_response(new_sockid, 500, 0);
 					continue;
 				} 
 				else if(status == 0)
@@ -390,11 +397,10 @@ int main(int argc, char * argv[]) {
 
 
 
-// no extension thing 
-//400 request
+
 //setresuid
-//req length
-//zoobar check conditions
+
+
 
 
 
