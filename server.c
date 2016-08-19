@@ -17,7 +17,7 @@
 char* allMonths[]= {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
 char* allWeeks[]= {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
 
-int write_response(int sockid, int i);
+int write_response(int sockid, int i, int conn);
 
 int check_connection(int size, char str[size]){
 	char* temp;
@@ -28,10 +28,12 @@ int check_connection(int size, char str[size]){
 }
 
 char* parse_req(int sockid, int size, char str[size]){
-   	
+   	/*-- Check connection ---*/
+	int conn = check_connection(size, str);
+
    	/*--- Method Check ---*/
 	if(strncmp(str, "GET ", 4)){
-		write_response(sockid, 501);
+		write_response(sockid, 501, conn);
 		return NULL;
 	}
 	
@@ -41,7 +43,7 @@ char* parse_req(int sockid, int size, char str[size]){
    	char* str_temp = strchr(str+4, ' ');
    	strncpy(version, str_temp+1, 8);
    	if(strcmp(version, "HTTP/1.1")){
-   		write_response(sockid, 400);
+   		write_response(sockid, 400, conn);
    		return NULL;
    	}
    	
@@ -54,8 +56,9 @@ char* parse_req(int sockid, int size, char str[size]){
    	return path;
 }
 
-int write_response(int sockid, int i){
+int write_response(int sockid, int i, int conn){
 	char buffer[4096];
+
 	if(i == 501)
 	{
 		strcpy(buffer, "HTTP/1.1 501 Not Implemented\r\n");
@@ -65,6 +68,11 @@ int write_response(int sockid, int i){
   		time_t t = time(NULL);
 	    struct tm *tm = localtime(&t);
 	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
+		if (conn == 2)
+			strcpy(buffer, "Connection: close\r\n");
+		else if(conn == 1 || conn == 0)
+			strcpy(buffer, "Connection: keep-alive\r\n");		  		
 		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
@@ -83,6 +91,11 @@ int write_response(int sockid, int i){
 	    struct tm *tm = localtime(&t);
 	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
 		write(sockid, buffer, strlen(buffer));
+		if (conn == 2)
+			strcpy(buffer, "Connection: close\r\n");
+		else if(conn == 1 || conn == 0)
+			strcpy(buffer, "Connection: keep-alive\r\n");		  		
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Bad Request</title>\n</head>\r\n");
@@ -100,6 +113,11 @@ int write_response(int sockid, int i){
 	    struct tm *tm = localtime(&t);
 	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
 		write(sockid, buffer, strlen(buffer));
+		if (conn == 2)
+			strcpy(buffer, "Connection: close\r\n");
+		else if(conn == 1 || conn == 0)
+			strcpy(buffer, "Connection: keep-alive\r\n");		  		
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Not Found</title>\n</head>\r\n");
@@ -116,6 +134,11 @@ int write_response(int sockid, int i){
   		time_t t = time(NULL);
 	    struct tm *tm = localtime(&t);
 	    sprintf(buffer, "Date: %s, %d %s %d %d:%d:%d IST\n", allWeeks[tm->tm_wday], tm->tm_mday, allMonths[tm->tm_mon], tm->tm_year+1900, tm->tm_hour, tm->tm_min, tm->tm_sec);
+		write(sockid, buffer, strlen(buffer));
+		if (conn == 2)
+			strcpy(buffer, "Connection: close\r\n");
+		else if(conn == 1 || conn == 0)
+			strcpy(buffer, "Connection: keep-alive\r\n");		  		
 		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
@@ -274,7 +297,8 @@ int main(int argc, char * argv[]) {
 				if(status < 0)
 				{
 					perror("Error: recv\n");	
-					write_response(new_sockid, 501);
+					// write_response(new_sockid, 501);
+					continue;
 				} 
 				else if(status == 0)
 				{
@@ -303,16 +327,18 @@ int main(int argc, char * argv[]) {
 					strcat(file_path, "index.html");
 				}
 
+				int conn = check_connection(strlen(recv_buf), recv_buf);
+
 				/*--- Checking File ---*/
 				FILE *file = fopen(file_path+1, "rb");
 				if (!file){
 			    	printf("!file\n");
-			    	write_response(new_sockid, 404);
+			    	write_response(new_sockid, 404, conn);
 			    	continue;
 			    } 
 			    printf("file\n");
 			    char *extension = strrchr(file_path, '.');
-			    int conn = check_connection(strlen(recv_buf), recv_buf);
+			    
 			    int ret = write_response_ok(new_sockid, send_buf, file, extension, conn);
 			
 				/*--- Sending file content ---*/
@@ -344,7 +370,7 @@ int main(int argc, char * argv[]) {
 
 // no extension thing 
 //400 request
-//date and server everywhere
+//date and server everywhere and connection
 //setresuid
 //req length
 //zoobar check conditions
