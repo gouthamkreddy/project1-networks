@@ -74,6 +74,8 @@ int write_response(int sockid, int i, int conn){
 		else if(conn == 1 || conn == 0)
 			strcpy(buffer, "Connection: keep-alive\r\n");		  		
 		write(sockid, buffer, strlen(buffer));
+		strcpy(buffer, "server: MyCServer\r\n");
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Not Implemented</title>\n</head>\r\n");
@@ -95,6 +97,8 @@ int write_response(int sockid, int i, int conn){
 			strcpy(buffer, "Connection: close\r\n");
 		else if(conn == 1 || conn == 0)
 			strcpy(buffer, "Connection: keep-alive\r\n");		  		
+		write(sockid, buffer, strlen(buffer));
+		strcpy(buffer, "server: MyCServer\r\n");
 		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
@@ -118,6 +122,8 @@ int write_response(int sockid, int i, int conn){
 		else if(conn == 1 || conn == 0)
 			strcpy(buffer, "Connection: keep-alive\r\n");		  		
 		write(sockid, buffer, strlen(buffer));
+		strcpy(buffer, "server: MyCServer\r\n");
+		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "<html>\n<head>\n<title>Not Found</title>\n</head>\r\n");
@@ -139,6 +145,8 @@ int write_response(int sockid, int i, int conn){
 			strcpy(buffer, "Connection: close\r\n");
 		else if(conn == 1 || conn == 0)
 			strcpy(buffer, "Connection: keep-alive\r\n");		  		
+		write(sockid, buffer, strlen(buffer));
+		strcpy(buffer, "server: MyCServer\r\n");
 		write(sockid, buffer, strlen(buffer));
   		strcpy(buffer, "Content-Type: text/html\r\n\r\n");
   		write(sockid, buffer, strlen(buffer));
@@ -339,7 +347,21 @@ int main(int argc, char * argv[]) {
 			    printf("file\n");
 			    char *extension = strrchr(file_path, '.');
 			    
-			    int ret = write_response_ok(new_sockid, send_buf, file, extension, conn);
+			    /*--- Check for extension ---*/
+			    if(extension == NULL)
+			    {
+			    	write_response(new_sockid, 501, conn);
+			    	continue;
+			    }
+			    if(!strcmp(".jpeg", extension) || !strcmp(".jpg", extension) || !strcmp(".html", extension) || !strcmp(".htm", extension) || !strcmp(".txt", extension) || !strcmp(".gif", extension) || !strcmp(".pdf", extension))
+			    {
+			    	int ret = write_response_ok(new_sockid, send_buf, file, extension, conn);
+			    }
+			    else
+			    {
+			    	write_response(new_sockid, 501, conn);
+			    	continue;
+			    }
 			
 				/*--- Sending file content ---*/
 		  		bzero((char *)send_buf, MAX_SIZE);
@@ -370,7 +392,6 @@ int main(int argc, char * argv[]) {
 
 // no extension thing 
 //400 request
-//date and server everywhere and connection
 //setresuid
 //req length
 //zoobar check conditions
